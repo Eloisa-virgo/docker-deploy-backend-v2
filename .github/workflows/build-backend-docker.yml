@@ -1,5 +1,5 @@
 name: Backend Docker Build & Push
-# 触发规则：main分支 + 你的新版new-grade-rule分支推送时运行
+# 触发规则: main分支 + new-grade-rule分支推送时运行
 on:
   push:
     branches:
@@ -10,31 +10,36 @@ jobs:
   build-push:
     runs-on: ubuntu-latest
     steps:
-      # 1. 拉取当前分支全部代码（包含你修改后的GradeServiceImpl.java）
+      # 1. 拉取当前分支全部代码
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. 登录Docker Hub，需要提前配置仓库密钥
+      # 2. 登录Docker Hub
       - name: Login DockerHub
         uses: docker/login-action@v3
         with:
-         username: ${{ secrets.DOCKER_HUB_USERNAME }}
-         password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      # 3. 根据分支设置镜像标签
+      # 3. 根据分支设置镜像标签（修复点1：把newrule改为new，同时兼容双标签）
       - name: Set image tag
         id: tag
         run: |
           if [[ $GITHUB_REF == refs/heads/new-grade-rule ]]; then
-            echo "TAG=newrule" >> $GITHUB_ENV
+            echo "TAG=new" >> $GITHUB_ENV
+            echo "LATEST_TAG=true" >> $GITHUB_ENV
           else
             echo "TAG=latest" >> $GITHUB_ENV
+            echo "LATEST_TAG=false" >> $GITHUB_ENV
           fi
 
-      # 4. 构建镜像并推送至Docker Hub
+      # 4. 构建镜像并推送（修复点2：new分支同时推送latest + new双标签）
       - name: Build & Push Image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: eloisat/234-backend:${{ env.TAG }}
+          # new-grade-rule分支同时打两个标签，main仅打latest
+          tags: |
+            eloisat/se234-backend:${{ env.TAG }}
+            ${{ env.LATEST_TAG == 'true' && 'eloisat/se234-backend:latest' || '' }}
